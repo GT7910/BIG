@@ -15,7 +15,8 @@ button{padding:16px 20px;font-size:16px;font-weight:700;border:0;background:#007
 button.bg-dark {background: #2c2c2e;}
 button:active{transform:scale(0.95);opacity:0.8;}
 #status{margin:18px 0 0;color:#8e8e93;font-size:13px;line-height:1.5}
-video{display:block;width:320px;height:160px;margin:25px auto 0;background:#000;border:1px solid #222;border-radius:12px}
+/* 初始化网页视频框的边框颜色为蓝色，随后会用 JS 动态接管 */
+video{display:block;width:320px;height:160px;margin:25px auto 0;background:#000;border:2px solid #007aff;border-radius:12px; transition: border-color 0.2s;}
 canvas{display:none}
 </style>
 </head>
@@ -23,13 +24,11 @@ canvas{display:none}
 <div class="container">
 <h2>BTC 极简盯盘终端</h2>
 <p id="status">正在建立连接…</p>
-<!-- 新增了双按钮布局，悬浮和全屏自由选择 -->
 <div class="btn-group">
   <button id="pipBtn">⚡ 开启无声悬浮</button>
   <button id="fsBtn" class="bg-dark">🖥️ 全屏大字</button>
 </div>
 <canvas id="canvas" width="640" height="320"></canvas>
-<!-- 纯净视觉流，不抢音频，油管抖音完美共存 -->
 <video id="video" width="320" height="160" autoplay playsinline muted></video>
 </div>
 
@@ -78,18 +77,17 @@ function drawCanvas(){
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  ctx.strokeStyle="#1c1c1e";
-  ctx.lineWidth=6;
-  ctx.strokeRect(3,3,canvas.width-6,canvas.height-6);
+  // 【核心修改：边框颜色随价格动态变化，并稍微加粗增强余光感知】
+  ctx.strokeStyle = priceColor; 
+  ctx.lineWidth = 8; 
+  ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
 
-  // 130px 超大加粗字体，完美绝对居中，全屏时视觉极其震撼
   ctx.fillStyle=priceColor;
   ctx.font="bold 130px -apple-system, Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
   ctx.fillText("₮" + displayPriceStr, canvas.width / 2, 175);
   
-  // 涨跌幅精确定位在右下角
   ctx.fillStyle=changeColor;
   ctx.font="bold 42px -apple-system, Arial";
   ctx.textAlign="right";
@@ -117,6 +115,8 @@ function updateInstantPrice(p) {
 
   if(lastPrice && p !== lastPrice){
     priceColor = p > lastPrice ? "#34c759" : "#ff3b30";
+    // 【同步网页端预览视频的边框颜色】
+    video.style.borderColor = priceColor;
   }
   btcPrice = p;
   displayPriceStr = formatPrice(p);
@@ -224,7 +224,6 @@ if(!streamOK){
   connectMEXC();
 }
 
-// 开启画中画功能 (边玩其他 App 边盯盘)
 btn.addEventListener("click", () => {
   try {
     if (video.requestPictureInPicture) {
@@ -237,13 +236,12 @@ btn.addEventListener("click", () => {
   }
 });
 
-// 开启全屏功能 (当桌面牌价大屏用)
 fsBtn.addEventListener("click", () => {
   try {
     if (video.requestFullscreen) {
       video.requestFullscreen();
     } else if (video.webkitEnterFullscreen) {
-      video.webkitEnterFullscreen(); // 调起 iOS 原生全屏
+      video.webkitEnterFullscreen(); 
     } else {
       alert("当前设备或浏览器不支持全屏功能");
     }
