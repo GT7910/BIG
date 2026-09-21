@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>BTC 智能边框断流版</title>
+<title>BTC 极限边缘空间版</title>
 <style>
 html,body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif}
 body{text-align:center;padding:40px 16px}
@@ -15,7 +15,8 @@ button{padding:16px 20px;font-size:16px;font-weight:700;border:0;background:#007
 button.bg-dark {background: #2c2c2e;}
 button:active{transform:scale(0.95);opacity:0.8;}
 #status{margin:18px 0 0;color:#8e8e93;font-size:13px;line-height:1.5}
-video{display:block;width:320px;height:160px;margin:25px auto 0;background:#000;border:2px solid #007aff;border-radius:18px; transition: border-color 0.2s;}
+/* 删除了容易引起误会的 CSS 外边框，现在所见即所得 */
+video{display:block;width:320px;height:160px;margin:25px auto 0;background:#000;border-radius:18px;}
 canvas{display:none}
 </style>
 </head>
@@ -76,58 +77,26 @@ function drawCanvas(){
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // 【核心改造 1：边框形态重塑】左右拉到最宽，上下往里收，避开系统遮罩啃咬
-  const padX = 8;   // 左右极限扩张，给巨型字体让出位置
-  const padY = 24;  // 上下向内深缩，保证边框永远不会被苹果系统切掉
-  const x = padX;
-  const y = padY;
-  const w = canvas.width - padX * 2;
-  const h = canvas.height - padY * 2;
-  const r = 28; 
-
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y, x + w, y + r, r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x, y + h, x, y + h - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
-
+  // 【暴力重构】：放弃画圆角，直接在绝对物理边缘 (0,0) 画一个超粗的直角边框！
+  // 巧妙利用苹果 iOS 悬浮窗自带的“物理圆角遮罩”，系统会自动帮我们把四个直角切成完美的圆角！
+  // 这样既保证了边框最靠外，又给巨型字体留出了 100% 的呼吸空间。
   ctx.strokeStyle = priceColor; 
-  ctx.lineWidth = 10; 
-  ctx.stroke();
+  ctx.lineWidth = 20; // 极粗边缘，一半在画内(10px)，一半在画外
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-  // 130px 字体大小绝对不妥协！
+  // 价格 (取消了一切断流遮罩，硬核直出，130px绝对不缩水)
+  ctx.fillStyle=priceColor;
   ctx.font="bold 130px -apple-system, Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
-  
-  // 【核心改造 2：智能断流遮罩】给文字加上一圈 20px 的纯黑描边
-  // 如果大字跳动时不小心压到了边框，黑边会完美地把彩色边框“擦除”一个缺口，而不是难看地糊在一起
-  ctx.lineJoin = "round";
-  ctx.lineWidth = 20; 
-  ctx.strokeStyle = "#000";
-  ctx.strokeText("₮" + displayPriceStr, canvas.width / 2, 175);
-  
-  // 然后再在黑边上面画出带颜色的字体
-  ctx.fillStyle=priceColor;
   ctx.fillText("₮" + displayPriceStr, canvas.width / 2, 175);
   
-  // 右下角涨跌幅也加上同样的遮罩力场，确保万无一失
+  // 涨跌幅
+  ctx.fillStyle=changeColor;
   ctx.font="bold 42px -apple-system, Arial";
   ctx.textAlign="right";
   ctx.textBaseline="alphabetic";
-  
-  ctx.lineWidth = 12;
-  ctx.strokeStyle = "#000";
-  ctx.strokeText(btcChangeRate, canvas.width - 35, canvas.height - 35);
-  
-  ctx.fillStyle=changeColor;
-  ctx.fillText(btcChangeRate, canvas.width - 35, canvas.height - 35);
+  ctx.fillText(btcChangeRate, canvas.width - 25, canvas.height - 25);
 }
 
 function startStream(){
@@ -150,7 +119,6 @@ function updateInstantPrice(p) {
 
   if(lastPrice && p !== lastPrice){
     priceColor = p > lastPrice ? "#34c759" : "#ff3b30";
-    video.style.borderColor = priceColor;
   }
   btcPrice = p;
   displayPriceStr = formatPrice(p);
