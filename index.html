@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>BTC 极简全屏盯盘版</title>
+<title>BTC 原生圆角盯盘版</title>
 <style>
 html,body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif}
 body{text-align:center;padding:40px 16px}
@@ -15,14 +15,13 @@ button{padding:16px 20px;font-size:16px;font-weight:700;border:0;background:#007
 button.bg-dark {background: #2c2c2e;}
 button:active{transform:scale(0.95);opacity:0.8;}
 #status{margin:18px 0 0;color:#8e8e93;font-size:13px;line-height:1.5}
-/* 初始化网页视频框的边框颜色为蓝色，随后会用 JS 动态接管 */
-video{display:block;width:320px;height:160px;margin:25px auto 0;background:#000;border:2px solid #007aff;border-radius:12px; transition: border-color 0.2s;}
+video{display:block;width:320px;height:160px;margin:25px auto 0;background:#000;border:2px solid #007aff;border-radius:18px; transition: border-color 0.2s;}
 canvas{display:none}
 </style>
 </head>
 <body>
 <div class="container">
-<h2>BTC 极简盯盘终端</h2>
+<h2>BTC 原生圆角盯盘</h2>
 <p id="status">正在建立连接…</p>
 <div class="btn-group">
   <button id="pipBtn">⚡ 开启无声悬浮</button>
@@ -77,22 +76,42 @@ function drawCanvas(){
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // 【核心修改：边框颜色随价格动态变化，并稍微加粗增强余光感知】
-  ctx.strokeStyle = priceColor; 
-  ctx.lineWidth = 8; 
-  ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+  // 【核心修复：完美贴合 iOS 原生的圆角边框】
+  const x = 5;
+  const y = 5;
+  const w = canvas.width - 10;
+  const h = canvas.height - 10;
+  const r = 36; // 36px 是经过测算的、与 iOS 悬浮窗弧度高度一致的圆角半径
 
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+
+  ctx.strokeStyle = priceColor; 
+  ctx.lineWidth = 10; // 稍微加粗，让呼吸灯效果更饱满
+  ctx.stroke();
+
+  // 价格
   ctx.fillStyle=priceColor;
   ctx.font="bold 130px -apple-system, Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
   ctx.fillText("₮" + displayPriceStr, canvas.width / 2, 175);
   
+  // 涨跌幅
   ctx.fillStyle=changeColor;
   ctx.font="bold 42px -apple-system, Arial";
   ctx.textAlign="right";
   ctx.textBaseline="alphabetic";
-  ctx.fillText(btcChangeRate, canvas.width - 35, canvas.height - 30);
+  ctx.fillText(btcChangeRate, canvas.width - 40, canvas.height - 30);
 }
 
 function startStream(){
@@ -115,7 +134,6 @@ function updateInstantPrice(p) {
 
   if(lastPrice && p !== lastPrice){
     priceColor = p > lastPrice ? "#34c759" : "#ff3b30";
-    // 【同步网页端预览视频的边框颜色】
     video.style.borderColor = priceColor;
   }
   btcPrice = p;
