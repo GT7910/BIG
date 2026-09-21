@@ -4,13 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>BTC 完美居中悬浮窗</title>
+<title>BTC 极简全屏盯盘版</title>
 <style>
 html,body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif}
 body{text-align:center;padding:40px 16px}
 .container{max-width:420px;margin:auto}
 h2{margin-bottom:10px;font-size:22px}
-button{padding:16px 24px;font-size:17px;font-weight:700;border:0;background:#007aff;color:#fff;border-radius:12px;margin-top:10px;cursor:pointer;}
+.btn-group {display: flex; justify-content: center; gap: 12px; margin-top: 15px;}
+button{padding:16px 20px;font-size:16px;font-weight:700;border:0;background:#007aff;color:#fff;border-radius:12px;cursor:pointer;}
+button.bg-dark {background: #2c2c2e;}
 button:active{transform:scale(0.95);opacity:0.8;}
 #status{margin:18px 0 0;color:#8e8e93;font-size:13px;line-height:1.5}
 video{display:block;width:320px;height:160px;margin:25px auto 0;background:#000;border:1px solid #222;border-radius:12px}
@@ -19,11 +21,16 @@ canvas{display:none}
 </head>
 <body>
 <div class="container">
-<h2>BTC 完美居中盯盘</h2>
+<h2>BTC 极简盯盘终端</h2>
 <p id="status">正在建立连接…</p>
-<button id="pipBtn">⚡ 开启悬浮窗</button>
+<!-- 新增了双按钮布局，悬浮和全屏自由选择 -->
+<div class="btn-group">
+  <button id="pipBtn">⚡ 开启无声悬浮</button>
+  <button id="fsBtn" class="bg-dark">🖥️ 全屏大字</button>
+</div>
 <canvas id="canvas" width="640" height="320"></canvas>
-<video id="video" width="320" height="160" autoplay playsinline></video>
+<!-- 纯净视觉流，不抢音频，油管抖音完美共存 -->
+<video id="video" width="320" height="160" autoplay playsinline muted></video>
 </div>
 
 <script>
@@ -33,6 +40,7 @@ const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
 const video=document.getElementById("video");
 const btn=document.getElementById("pipBtn");
+const fsBtn=document.getElementById("fsBtn");
 const status=document.getElementById("status");
 
 let btcPrice="加载中...";
@@ -48,6 +56,11 @@ let reconnectTimer=null;
 
 let isDrawing = false;
 function scheduleDraw() {
+  if (document.hidden || document.visibilityState === "hidden") {
+    drawCanvas();
+    return;
+  }
+  
   if (!isDrawing) {
     isDrawing = true;
     requestAnimationFrame(() => {
@@ -69,14 +82,14 @@ function drawCanvas(){
   ctx.lineWidth=6;
   ctx.strokeRect(3,3,canvas.width-6,canvas.height-6);
 
-  // 【完美居中优化】画布高度 320，中心点 160。向下微调 15px 到 175，视觉上绝对处于整体正中央
+  // 130px 超大加粗字体，完美绝对居中，全屏时视觉极其震撼
   ctx.fillStyle=priceColor;
   ctx.font="bold 130px -apple-system, Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
   ctx.fillText("₮" + displayPriceStr, canvas.width / 2, 175);
   
-  // 涨跌幅定位在右下角
+  // 涨跌幅精确定位在右下角
   ctx.fillStyle=changeColor;
   ctx.font="bold 42px -apple-system, Arial";
   ctx.textAlign="right";
@@ -88,7 +101,6 @@ function startStream(){
   if(!canvas.captureStream) return false;
   try{
     video.srcObject=canvas.captureStream(60); 
-    video.muted = true;
     return true;
   }catch(e){
     return false;
@@ -124,7 +136,7 @@ function connectMEXC(forceKill = false){
   ws=new WebSocket("wss://contract.mexc.com/edge");
 
   ws.onopen=()=>{
-    status.textContent="已连接，极速现价同步中…";
+    status.textContent="已连接，纯净视觉流同步中…";
     ws.send(JSON.stringify({ method:"sub.ticker", param:{symbol:"BTC_USDT"} }));
     ws.send(JSON.stringify({ method:"sub.deal", param:{symbol:"BTC_USDT"} }));
 
@@ -162,7 +174,7 @@ function connectMEXC(forceKill = false){
         }
         if(p !== null) {
           updateInstantPrice(p);
-          status.textContent="🟢 零延迟极速刷新 (60FPS)";
+          status.textContent="🟢 零延迟极速刷新 (可共存看视频)";
         }
       }
     }catch(e){}
@@ -181,64 +193,62 @@ function connectMEXC(forceKill = false){
 }
 
 document.addEventListener("visibilitychange", () => {
+  if (video.paused) video.play().catch(()=>{});
+  
   if (document.visibilityState === "visible") {
-    if (video.paused) video.play().catch(()=>{});
     if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
       status.textContent = "屏幕唤醒，极速重连中...";
       connectMEXC(true);
     }
-    scheduleDraw();
   }
+  scheduleDraw();
 });
 
 window.addEventListener("focus", () => {
   if (video.paused) video.play().catch(()=>{});
 });
 
+setInterval(() => {
+  if (video.paused && document.pictureInPictureElement) {
+    video.play().catch(()=>{});
+  }
+}, 1000);
+
 scheduleDraw();
 
 const streamOK=startStream();
 if(!streamOK){
   btn.disabled=true;
+  fsBtn.disabled=true;
 }else{
   connectMEXC();
 }
 
+// 开启画中画功能 (边玩其他 App 边盯盘)
 btn.addEventListener("click", () => {
   try {
-    if (!window.audioHackApplied) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      const audioCtx = new AudioContext();
-      
-      const destination = audioCtx.createMediaStreamDestination();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      
-      gainNode.gain.value = 0; 
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(destination);
-      oscillator.start();
-
-      const audioTrack = destination.stream.getAudioTracks()[0];
-      if (audioTrack && video.srcObject) {
-        video.srcObject.addTrack(audioTrack);
-      }
-      
-      video.muted = false; 
-      audioCtx.resume();
-      window.audioHackApplied = true;
-    }
-
     if (video.requestPictureInPicture) {
-      video.requestPictureInPicture().catch(error => {
-         alert("开启悬浮窗失败：" + error.message);
-      });
+      video.requestPictureInPicture().catch(error => alert("开启悬浮窗失败：" + error.message));
     } else if (video.webkitSetPresentationMode) {
       video.webkitSetPresentationMode("picture-in-picture");
     }
   } catch (error) {
     alert("执行出错：" + error.message);
+  }
+});
+
+// 开启全屏功能 (当桌面牌价大屏用)
+fsBtn.addEventListener("click", () => {
+  try {
+    if (video.requestFullscreen) {
+      video.requestFullscreen();
+    } else if (video.webkitEnterFullscreen) {
+      video.webkitEnterFullscreen(); // 调起 iOS 原生全屏
+    } else {
+      alert("当前设备或浏览器不支持全屏功能");
+    }
+  } catch (error) {
+    alert("全屏失败：" + error.message);
   }
 });
 </script>
