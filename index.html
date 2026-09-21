@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>BTC 原生圆角盯盘版</title>
+<title>BTC 完美等宽边框版</title>
 <style>
 html,body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif}
 body{text-align:center;padding:40px 16px}
@@ -21,7 +21,7 @@ canvas{display:none}
 </head>
 <body>
 <div class="container">
-<h2>BTC 原生圆角盯盘</h2>
+<h2>BTC 极简盯盘终端</h2>
 <p id="status">正在建立连接…</p>
 <div class="btn-group">
   <button id="pipBtn">⚡ 开启无声悬浮</button>
@@ -76,12 +76,13 @@ function drawCanvas(){
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // 【核心修复：完美贴合 iOS 原生的圆角边框】
-  const x = 5;
-  const y = 5;
-  const w = canvas.width - 10;
-  const h = canvas.height - 10;
-  const r = 36; // 36px 是经过测算的、与 iOS 悬浮窗弧度高度一致的圆角半径
+  // 【核心修复：加大安全内边距，避开系统遮罩裁剪】
+  const padding = 16; // 往内收缩 16 像素，留出黑边缓冲
+  const x = padding;
+  const y = padding;
+  const w = canvas.width - padding * 2;
+  const h = canvas.height - padding * 2;
+  const r = 32; // 圆角适配新的内边距
 
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -95,23 +96,24 @@ function drawCanvas(){
   ctx.arcTo(x, y, x + r, y, r);
   ctx.closePath();
 
+  // 渲染粗细完全一致的变色边框
   ctx.strokeStyle = priceColor; 
-  ctx.lineWidth = 10; // 稍微加粗，让呼吸灯效果更饱满
+  ctx.lineWidth = 10; 
   ctx.stroke();
 
-  // 价格
+  // 价格 (绝对居中)
   ctx.fillStyle=priceColor;
   ctx.font="bold 130px -apple-system, Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
   ctx.fillText("₮" + displayPriceStr, canvas.width / 2, 175);
   
-  // 涨跌幅
+  // 涨跌幅 (为了配合边框内缩，文字也稍微往里挪了一点点，防止贴边)
   ctx.fillStyle=changeColor;
   ctx.font="bold 42px -apple-system, Arial";
   ctx.textAlign="right";
   ctx.textBaseline="alphabetic";
-  ctx.fillText(btcChangeRate, canvas.width - 40, canvas.height - 30);
+  ctx.fillText(btcChangeRate, canvas.width - 45, canvas.height - 40);
 }
 
 function startStream(){
