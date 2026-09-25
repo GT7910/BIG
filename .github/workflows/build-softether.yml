@@ -1,0 +1,95 @@
+name: Build SoftEther ARM64 musl
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable ARM64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static binfmt-support
+
+      - name: Prepare ARM64 Alpine
+        run: |
+          docker run --rm --privileged tonistiigi/binfmt --install arm64
+
+      - name: Build inside ARM64 Alpine
+        run: |
+          docker run --rm \
+            --platform linux/arm64 \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine:3.19 \
+            sh -c '
+              set -e
+
+              apk add --no-cache \
+                build-base \
+                make \
+                gcc \
+                g++ \
+                musl-dev \
+                linux-headers \
+                openssl-dev \
+                zlib-dev \
+                ncurses-dev \
+                readline-dev \
+                libedit-dev \
+                libiconv-dev \
+                git \
+                wget \
+                tar \
+                file
+
+              wget -O softether.tar.gz \
+                "https://www.softether-download.com/files/softether/v4.41-9787-rtm-2023.03.14-tree/Linux/SoftEther_VPN_Server/64bit_-_ARM_64bit/softether-vpnserver-v4.41-9787-rtm-2023.03.14-linux-arm64-64bit.tar.gz"
+
+              rm -rf vpnserver
+              tar -xzf softether.tar.gz
+
+              cd vpnserver
+
+              echo "=== Compiler ==="
+              gcc --version
+
+              echo "=== Architecture ==="
+              uname -m
+
+              echo "=== Building vpnserver ==="
+              make main
+
+              echo "=== Checking vpnserver ==="
+              file vpnserver
+              ldd vpnserver || true
+
+              echo "=== Checking vpncmd ==="
+              file vpncmd
+              ldd vpncmd || true
+
+              mkdir -p /work/artifacts
+              cp vpnserver /work/artifacts/
+              cp vpncmd /work/artifacts/
+              cp hamcore.se2 /work/artifacts/
+
+              chmod 755 /work/artifacts/vpnserver
+              chmod 755 /work/artifacts/vpncmd
+            '
+
+      - name: Verify artifacts
+        run: |
+          file artifacts/vpnserver
+          file artifacts/vpncmd
+          ls -lh artifacts/
+
+      - name: Upload SoftEther
+        uses: actions/upload-artifact@v4
+        with:
+          name: softether-arm64-musl
+          path: artifacts/
