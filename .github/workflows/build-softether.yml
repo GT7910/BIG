@@ -11,85 +11,90 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable ARM64
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-user-static binfmt-support
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
 
-      - name: Prepare ARM64 Alpine
+      - name: Test ARM64
         run: |
-          docker run --rm --privileged tonistiigi/binfmt --install arm64
+          docker run --rm --platform linux/arm64 alpine:3.19 uname -m
 
-      - name: Build inside ARM64 Alpine
+      - name: Build SoftEther
         run: |
+          mkdir -p output
+
           docker run --rm \
             --platform linux/arm64 \
-            -v "$PWD:/work" \
-            -w /work \
+            -v "$PWD/output:/output" \
             alpine:3.19 \
-            sh -c '
-              set -e
-
+            sh -euxc '
               apk add --no-cache \
                 build-base \
-                make \
-                gcc \
-                g++ \
-                musl-dev \
+                binutils \
                 linux-headers \
-                openssl-dev \
-                zlib-dev \
-                ncurses-dev \
                 readline-dev \
-                libedit-dev \
-                libiconv-dev \
+                openssl-dev \
+                ncurses-dev \
                 git \
-                wget \
-                tar \
+                cmake \
+                zlib-dev \
+                libsodium-dev \
+                gnu-libiconv \
+                libiconv \
                 file
 
-              wget -O softether.tar.gz \
-                "https://www.softether-download.com/files/softether/v4.41-9787-rtm-2023.03.14-tree/Linux/SoftEther_VPN_Server/64bit_-_ARM_64bit/softether-vpnserver-v4.41-9787-rtm-2023.03.14-linux-arm64-64bit.tar.gz"
+              cd /tmp
 
-              rm -rf vpnserver
-              tar -xzf softether.tar.gz
+              git clone --depth 1 \
+                https://github.com/SoftEtherVPN/SoftEtherVPN.git
 
-              cd vpnserver
+              cd SoftEtherVPN
 
-              echo "=== Compiler ==="
-              gcc --version
+              git submodule update --init --depth 1
 
-              echo "=== Architecture ==="
-              uname -m
+              export USE_MUSL=YES
 
-              echo "=== Building vpnserver ==="
-              make main
+              ./configure
 
-              echo "=== Checking vpnserver ==="
-              file vpnserver
-              ldd vpnserver || true
+              make -C build -j2
 
-              echo "=== Checking vpncmd ==="
-              file vpncmd
-              ldd vpncmd || true
+              echo
+              echo "===== VPN SERVER ====="
+              file build/vpnserver
+              ldd build/vpnserver || true
 
-              mkdir -p /work/artifacts
-              cp vpnserver /work/artifacts/
-              cp vpncmd /work/artifacts/
-              cp hamcore.se2 /work/artifacts/
+              echo
+              echo "===== VPN CMD ====="
+              file build/vpncmd
+              ldd build/vpncmd || true
 
-              chmod 755 /work/artifacts/vpnserver
-              chmod 755 /work/artifacts/vpncmd
+              echo
+              echo "===== COPY ====="
+
+              cp build/vpnserver /output/
+              cp build/vpncmd /output/
+              cp build/hamcore.se2 /output/
+
+              chmod 755 /output/vpnserver
+              chmod 755 /output/vpncmd
             '
 
-      - name: Verify artifacts
+      - name: Verify
         run: |
-          file artifacts/vpnserver
-          file artifacts/vpncmd
-          ls -lh artifacts/
+          echo "===== ARTIFACTS ====="
+          ls -lh output/
 
-      - name: Upload SoftEther
+          echo
+          echo "===== vpnserver ====="
+          file output/vpnserver
+
+          echo
+          echo "===== vpncmd ====="
+          file output/vpncmd
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: softether-arm64-musl
-          path: artifacts/
+          path: output/
