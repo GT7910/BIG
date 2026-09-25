@@ -1,59 +1,87 @@
-- name: Build SoftEther
-  run: |
-    mkdir -p output
+name: Build SoftEther ARM64 musl
 
-    docker run --rm \
-      --platform linux/arm64 \
-      -v "$PWD/output:/output" \
-      alpine:3.19 \
-      sh -euxc '
-        apk add --no-cache \
-          build-base \
-          binutils \
-          linux-headers \
-          readline-dev \
-          openssl-dev \
-          ncurses-dev \
-          git \
-          cmake \
-          zlib-dev \
-          libsodium-dev \
-          gnu-libiconv \
-          file
+on:
+  workflow_dispatch:
 
-        export LD_PRELOAD=/usr/lib/preloadable_libiconv.so
-        export USE_MUSL=YES
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-        cd /tmp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        git clone --depth 1 \
-          https://github.com/SoftEtherVPN/SoftEtherVPN.git
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
 
-        cd SoftEtherVPN
+      - name: Test ARM64
+        run: |
+          docker run --rm --platform linux/arm64 alpine:3.19 uname -m
 
-        git submodule init
-        git submodule update
+      - name: Build SoftEther
+        run: |
+          mkdir -p output
 
-        ./configure
+          docker run --rm \
+            --platform linux/arm64 \
+            -v "$PWD/output:/output" \
+            alpine:3.19 \
+            sh -euxc '
+              apk add --no-cache \
+                build-base \
+                binutils \
+                linux-headers \
+                readline-dev \
+                openssl-dev \
+                ncurses-dev \
+                git \
+                cmake \
+                zlib-dev \
+                libsodium-dev \
+                gnu-libiconv \
+                file
 
-        make -C build -j2
+              export LD_PRELOAD=/usr/lib/preloadable_libiconv.so
+              export USE_MUSL=YES
 
-        echo
-        echo "===== VPN SERVER ====="
-        file build/vpnserver
-        ldd build/vpnserver || true
+              cd /tmp
 
-        echo
-        echo "===== VPN CMD ====="
-        file build/vpncmd
-        ldd build/vpncmd || true
+              git clone --depth 1 \
+                https://github.com/SoftEtherVPN/SoftEtherVPN.git
 
-        mkdir -p /output
+              cd SoftEtherVPN
 
-        cp build/vpnserver /output/
-        cp build/vpncmd /output/
-        cp build/hamcore.se2 /output/
+              git submodule init
+              git submodule update
 
-        chmod 755 /output/vpnserver
-        chmod 755 /output/vpncmd
-      '
+              ./configure
+
+              make -C build -j2
+
+              echo
+              echo "===== VPN SERVER ====="
+              file build/vpnserver
+              ldd build/vpnserver || true
+
+              echo
+              echo "===== VPN CMD ====="
+              file build/vpncmd
+              ldd build/vpncmd || true
+
+              mkdir -p /output
+
+              cp build/vpnserver /output/
+              cp build/vpncmd /output/
+              cp build/hamcore.se2 /output/
+
+              chmod 755 /output/vpnserver
+              chmod 755 /output/vpncmd
+            '
+
+      - name: Upload SoftEther
+        uses: actions/upload-artifact@v4
+        with:
+          name: softether-arm64-musl
+          path: output/
